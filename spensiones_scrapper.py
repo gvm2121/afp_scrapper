@@ -39,6 +39,7 @@ meses = {
 
 
 #aca agregamos otros cambios para probar github
+#estos vienen del pc con linux
 fecha = tabla_con_datos.th
 fecha_texto = fecha.get_text()
 fecha_final = re.search('\d{2}-\D+-\d{4}',fecha_texto)[0]
