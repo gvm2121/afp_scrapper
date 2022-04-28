@@ -1,0 +1,20 @@
+CREATE or REPLACE FUNCTION chequeo_datos() RETURNS trigger AS $$
+BEGIN
+IF NEW.val_cuota = 0 or NEW.val_pat = 0 THEN
+	NEW.status = False;
+else
+	NEW.status = True;
+END IF;
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+---DROP TRIGGER chequeo_datos ON habitat;
+CREATE TRIGGER chequeo_datos BEFORE INSERT ON public.habitat
+    FOR EACH ROW EXECUTE FUNCTION chequeo_datos();
+	
+INSERT INTO public.habitat(fecha, val_cuota, val_pat,status) VALUES ('2022-03-18',100,200,true);
+INSERT INTO public.habitat(fecha, val_cuota, val_pat,status) VALUES ('2022-03-19',0,0,true);
+
+NEW es la fila que viene entrando.
+OLD es la fila que ya estaba.
