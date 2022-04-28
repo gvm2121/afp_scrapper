@@ -11,12 +11,29 @@ import datetime as dt
 
 #s = b(extraido,"html.parser")
 
+#VER si estamos en el mismo día, la primera del dia debería ser insert.
+#   luego habría que ver si existen datos falsos, si es así debería volver a hacer un primero un delete y luego un insert hasta buscar el true.
+
+# buscar_falsos = psycopg2.execute(Busca los valores falsos en cada tabla)
+# ve qué fondos tiene false a fin de recrear la url que no publica los datos, todavía.
+# 
+
+#buscamos si la fecha está en la base de datos
+conn = psycopg2.connect("host = localhost dbname=afp_scrapper_db user=gonzalo password=gonzalovera26")
+cur  = conn.cursor()
+#fecha_en_la_base = cur.execute()
+busca_los_falsos = cur.execute("""SELECT * FROM capital ca,cuprum cu ,habitat ha ,modelo mo ,planvital pl,provida pr ,uno u where ca.status=False OR cu.status = False OR ha.status = False OR mo.status = False OR pl.status = False OR pr.status = False OR u.status = False; """)
+
+print('Primero de los falsos',busca_los_falsos)
+
 fondos = ['A','B','C','D','E']
+
+
 for f in fondos:
-    url = 'https://www.spensiones.cl/apps/valoresCuotaFondo/vcfAFP.php?tf=' + f
-    extraido = requests.get(url)
-    s = b(extraido.text,"html.parser")
-    #s = b(extraido,"html.parser")
+    #url = 'https://www.spensiones.cl/apps/valoresCuotaFondo/vcfAFP.php?tf=' + f
+    #extraido = requests.get(url)
+    #s = b(extraido.text,"html.parser")
+    s = b(extraido,"html.parser")
 
 
     tablas = s.find_all('table')
@@ -44,8 +61,7 @@ for f in fondos:
         'Diciembre':'12',
         }
 
-    conn = psycopg2.connect("host = localhost dbname=afp_scrapper_db user=gonzalo password=gonzalovera26")
-    cur  = conn.cursor()
+
 
     fecha = tabla_con_datos.th
     fecha_texto = fecha.get_text()
@@ -53,7 +69,6 @@ for f in fondos:
     mes = fecha_final.split('-')[1]
     f1 = fecha_final.replace(mes,meses[mes])
     dt_1 = dt.datetime.strptime(f1,"%d-%m-%Y")
-
     for i in range(0,19,3):
         AFP = tds[i].get_text()
         AFP_val_cuota = tds[i+1].get_text() if tds[i+1].get_text() !='(*) ' else '0'
