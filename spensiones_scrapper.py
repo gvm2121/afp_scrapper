@@ -10,78 +10,73 @@ import re
 import datetime as dt
 
 #s = b(extraido,"html.parser")
-
-#VER si estamos en el mismo día, la primera del dia debería ser insert.
-#   luego habría que ver si existen datos falsos, si es así debería volver a hacer un primero un delete y luego un insert hasta buscar el true.
-
-# buscar_falsos = psycopg2.execute(Busca los valores falsos en cada tabla)
-# ve qué fondos tiene false a fin de recrear la url que no publica los datos, todavía.
-# 
+# segunda idea.
+# hay que hacer 2 cronJobs, 1 que inicialize el día(Insert) y otro que llene los datos (Update)
+# se segundo cron buscará, dentro de la base de datos y del dia, algun false. Si lo encuentra corre el update otra vez, cada 2 o 4 hrs. Si no 
+# encuentra ningun false, no hace nada porque se entiende que todos los datos ya están dentro y correctos.
 
 #buscamos si la fecha está en la base de datos
 conn = psycopg2.connect("host = localhost dbname=afp_scrapper_db user=gonzalo password=gonzalovera26")
 cur  = conn.cursor()
 #fecha_en_la_base = cur.execute()
-busca_los_falsos = cur.execute("""SELECT * FROM capital ca,cuprum cu ,habitat ha ,modelo mo ,planvital pl,provida pr ,uno u where ca.status=False OR cu.status = False OR ha.status = False OR mo.status = False OR pl.status = False OR pr.status = False OR u.status = False; """)
-
-print('Primero de los falsos',busca_los_falsos)
-
-fondos = ['A','B','C','D','E']
+cur.execute("""SELECT * FROM capital ca,cuprum cu ,habitat ha ,modelo mo ,planvital pl,provida pr ,uno u where ca.status=False OR cu.status = False OR ha.status = False OR mo.status = False OR pl.status = False OR pr.status = False OR u.status = False; """)
 
 
-for f in fondos:
-    #url = 'https://www.spensiones.cl/apps/valoresCuotaFondo/vcfAFP.php?tf=' + f
-    #extraido = requests.get(url)
-    #s = b(extraido.text,"html.parser")
-    s = b(extraido,"html.parser")
-
-
-    tablas = s.find_all('table')
-    tabla_con_datos = tablas[3]
-    tds = tabla_con_datos.find_all("td")
-
-    #acá hay que sacar las otras afps y los valoes cuotas y patrimonios
-    primer_afp = tds[0].get_text()
-
-
-    #Aca saca el fondo
-
-    meses = {
-        'Enero':'01',
-        'Febrero':'02',
-        'Marzo':'03',
-        'Abril':'04',
-        'Mayo':'05',
-        'Junio':'06',
-        'julio':'07',
-        'Agosto':'08',
-        'Septiembre':'09',
-        'Octubre':'10',
-        'Noviembre':'11',
-        'Diciembre':'12',
-        }
-
-
-
-    fecha = tabla_con_datos.th
-    fecha_texto = fecha.get_text()
-    fecha_final = re.search('\d{2}-\D+-\d{4}',fecha_texto)[0]
-    mes = fecha_final.split('-')[1]
-    f1 = fecha_final.replace(mes,meses[mes])
-    dt_1 = dt.datetime.strptime(f1,"%d-%m-%Y")
-    for i in range(0,19,3):
-        AFP = tds[i].get_text()
-        AFP_val_cuota = tds[i+1].get_text() if tds[i+1].get_text() !='(*) ' else '0'
-        AFP_pat = tds[i+2].get_text() if tds[i+1].get_text() !='(*) ' else '0'
-        AFP_val_cuota = AFP_val_cuota.replace('.','').replace(',','.').replace(u'\xa0',u'')
-        AFP_pat = AFP_pat.replace('.','').replace(',','.').replace(u'\xa0',u'')
-        status_aux = False if AFP_val_cuota == '0' or AFP_pat == '0' else True
-        cur.execute("INSERT INTO %s(fecha, val_cuota, val_pat,status,fondo) VALUES (%s,%s,%s,%s,%s)",(AsIs(AFP.lower()),dt_1,float(AFP_val_cuota),int(AFP_pat),status_aux,f))
-        conn.commit()
-
+hay_falsos = True if False in cur.fetchone() else False
 
 cur.close()
-conn.close()
+
+if hay_falsos:
+    fondos = ['A','B','C','D','E']
+    for f in fondos:
+        url = 'https://www.spensiones.cl/apps/valoresCuotaFondo/vcfAFP.php?tf=' + f
+        extraido = requests.get(url)
+        s = b(extraido.text,"html.parser")
+        #s = b(extraido,"html.parser")
+
+        tablas = s.find_all('table')
+        tabla_con_datos = tablas[3]
+        tds = tabla_con_datos.find_all("td")
+
+        #acá hay que sacar las otras afps y los valoes cuotas y patrimonios
+        primer_afp = tds[0].get_text()
+
+        meses = {
+            'Enero':'01',
+            'Febrero':'02',
+            'Marzo':'03',
+            'Abril':'04',
+            'Mayo':'05',
+            'Junio':'06',
+            'julio':'07',
+            'Agosto':'08',
+            'Septiembre':'09',
+            'Octubre':'10',
+            'Noviembre':'11',
+            'Diciembre':'12',
+            }
+
+
+
+        fecha = tabla_con_datos.th
+        fecha_texto = fecha.get_text()
+        fecha_final = re.search('\d{2}-\D+-\d{4}',fecha_texto)[0]
+        mes = fecha_final.split('-')[1]
+        f1 = fecha_final.replace(mes,meses[mes])
+        dt_1 = dt.datetime.strptime(f1,"%d-%m-%Y")
+        for i in range(0,19,3):
+            AFP = tds[i].get_text()
+            AFP_val_cuota = tds[i+1].get_text() if tds[i+1].get_text() !='(*) ' else '0'
+            AFP_pat = tds[i+2].get_text() if tds[i+1].get_text() !='(*) ' else '0'
+            AFP_val_cuota = AFP_val_cuota.replace('.','').replace(',','.').replace(u'\xa0',u'')
+            AFP_pat = AFP_pat.replace('.','').replace(',','.').replace(u'\xa0',u'')
+            status_aux = False if AFP_val_cuota == '0' or AFP_pat == '0' else True
+            #cur.execute("INSERT INTO %s(fecha, val_cuota, val_pat,status,fondo) VALUES (%s,%s,%s,%s,%s)",(AsIs(AFP.lower()),dt_1,float(AFP_val_cuota),int(AFP_pat),status_aux,f))
+            conn.commit()
+
+
+    cur.close()
+    conn.close()
 
 
 
